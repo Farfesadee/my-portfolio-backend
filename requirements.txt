@@ -5,3 +5,9 @@ pymysql
 python-dotenv
 cryptography
 pydantic
+passlib[bcrypt]
+pyjwt
+email-validator
+python-multipart
+slowapi
+python-magic
