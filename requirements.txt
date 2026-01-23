@@ -11,3 +11,4 @@ email-validator
 python-multipart
 slowapi
 python-magic
+resend

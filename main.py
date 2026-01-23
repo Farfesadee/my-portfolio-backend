@@ -271,9 +271,15 @@ resend.api_key = RESEND_API_KEY
 # Initialize app
 app = FastAPI()
 
+@app.get("/")
+def health_check():
+    return {"status": "Portfolio backend is live"}
+
+
 
 # Create DB tables
-Base.metadata.create_all(bind=engine)
+if os.getenv("ENV") != "production":
+    Base.metadata.create_all(bind=engine)
 
 # CORS (allow all for now — restrict later)
 app.add_middleware(
@@ -393,6 +399,7 @@ def get_messages(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
         .limit(limit)
         .all()
     )
+    return messages
 
 
 
