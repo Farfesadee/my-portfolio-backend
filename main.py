@@ -249,7 +249,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from sqlalchemy.orm import Session
-from models import Contact, Project, Base
+from models import Contact, Project, Cv, Base
 from database import SessionLocal, engine
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -278,7 +278,7 @@ def health_check():
 
 
 # Create DB tables
-if os.getenv("ENV") != "production":
+if os.getenv("ENV") != "production" or os.getenv("ALLOW_DB_CREATE") == "true":
     Base.metadata.create_all(bind=engine)
 
 # CORS (allow all for now — restrict later)
@@ -310,6 +310,10 @@ class ProjectRequest(BaseModel):
     image_path: Optional[str] = None
     live_url: Optional[str] = None
     repo_url: Optional[str] = None
+
+class CvRequest(BaseModel):
+    content: Optional[str] = None
+    file_url: Optional[str] = None
 
 
 # -------------------------------
@@ -407,6 +411,15 @@ def get_messages(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
 def get_latest_messages(db: Session = Depends(get_db)):
     """Latest 10 messages."""
     return db.query(Contact).order_by(Contact.timestamp.desc()).limit(10).all() 
+
+
+@app.get("/cv")
+def get_cv(db: Session = Depends(get_db)):
+    """Public CV endpoint."""
+    cv = db.query(Cv).order_by(Cv.id.desc()).first()
+    if not cv:
+        raise HTTPException(status_code=404, detail="CV not found")
+    return cv
 
 
 #  # Optional: only return necessary fields for frontend 
@@ -569,28 +582,34 @@ def admin_delete_message(message_id: int, secret: str, db: Session = Depends(get
     return {"detail": "Message deleted successfully"}
 
 
-# @app.post("/admin/projects")
-# def admin_create_project(data: ProjectRequest, secret: str, db: Session = Depends(get_db)):
-#     verify_admin(secret)
+@app.get("/admin/projects")
+def admin_list_projects(secret: str, db: Session = Depends(get_db)):
+    verify_admin(secret)
+    return db.query(Project).order_by(Project.created_at.desc()).all()
 
-#     existing = db.query(Project).filter(Project.slug == data.slug).first()
-#     if existing:
-#         raise HTTPException(status_code=400, detail="Slug already exists")
 
-#     project = Project(
-#         title=data.title,
-#         slug=data.slug,
-#         description=data.description,
-#         image_path=data.image_path,
-#         live_url=data.live_url,
-#         repo_url=data.repo_url
-#     )
+@app.post("/admin/projects")
+def admin_create_project(data: ProjectRequest, secret: str, db: Session = Depends(get_db)):
+    verify_admin(secret)
 
-#     db.add(project)
-#     db.commit()
-#     db.refresh(project)
+    existing = db.query(Project).filter(Project.slug == data.slug).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Slug already exists")
 
-#     return {"message": "Project created", "project": project}
+    project = Project(
+        title=data.title,
+        slug=data.slug,
+        description=data.description,
+        image_path=data.image_path,
+        live_url=data.live_url,
+        repo_url=data.repo_url
+    )
+
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    return {"message": "Project created", "project": project}
 
 @app.get("/admin/projects/{project_id}")
 def get_project_by_id(project_id: int, secret: str, db: Session = Depends(get_db)):
@@ -634,3 +653,20 @@ def admin_delete_project(project_id: int, secret: str, db: Session = Depends(get
     db.delete(project)
     db.commit()
     return {"message": "Project deleted successfully"}
+
+
+@app.put("/admin/cv")
+def admin_update_cv(data: CvRequest, secret: str, db: Session = Depends(get_db)):
+    verify_admin(secret)
+
+    cv = db.query(Cv).order_by(Cv.id.desc()).first()
+    if not cv:
+        cv = Cv(content=data.content, file_url=data.file_url)
+        db.add(cv)
+    else:
+        cv.content = data.content
+        cv.file_url = data.file_url
+
+    db.commit()
+    db.refresh(cv)
+    return {"message": "CV updated", "cv": cv}

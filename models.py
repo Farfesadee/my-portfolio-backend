@@ -82,3 +82,10 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Cv(Base):
+    __tablename__ = "cv"
+    id = Column(Integer, primary_key=True, index=True)
+    content = Column(Text, nullable=True)
+    file_url = Column(String(1024), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
