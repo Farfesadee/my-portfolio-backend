@@ -12,3 +12,4 @@ python-multipart
 slowapi
 python-magic
 resend
+httpx
